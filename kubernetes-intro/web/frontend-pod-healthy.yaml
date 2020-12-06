@@ -10,6 +10,21 @@ spec:
   - image: ilya251188/otus:frontend
     name: frontend
     resources: {}
+    env:
+      - name: PRODUCT_CATALOG_SERVICE_ADDR
+        value: "PRODUCT_CATALOG_SERVICE"
+      - name: CURRENCY_SERVICE_ADDR
+        value: "CURRENCY_SERVICE"
+      - name: CART_SERVICE_ADDR
+        value: "fake"
+      - name: RECOMMENDATION_SERVICE_ADDR
+        value: "fake"
+      - name: CHECKOUT_SERVICE_ADDR
+        value: "fake"
+      - name: SHIPPING_SERVICE_ADDR
+        value: "fake"
+      - name: AD_SERVICE_ADDR
+        value: "fake"
   dnsPolicy: ClusterFirst
   restartPolicy: Never
 status: {}
