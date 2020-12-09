@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-exporter
+spec:
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: exporter
+  updateStrategy:
+    type: OnDelete
+  template:
+    metadata:
+      name: node-exporter
+      labels:
+        app: exporter
+    spec:
+      containers:
+        - name: node-exporter
+          image: prom/node-exporter
+      
