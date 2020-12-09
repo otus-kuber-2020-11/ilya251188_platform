@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   name: frontend
   labels:
@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: server
-          image: ilya251188/otus:frontend_v0.0.1
+          image: ilya251188/otus:frontend_v0.0.2
           env:
             - name: PRODUCT_CATALOG_SERVICE_ADDR
               value: "PRODUCT_CATALOG_SERVICE"
@@ -32,3 +32,11 @@ spec:
               value: "fake"
             - name: AD_SERVICE_ADDR
               value: "fake"
+          readinessProbe:
+            initialDelaySeconds: 10
+            httpGet:
+              path: "/_healthz"
+              port: 8080
+              httpHeaders:
+                - name: "Cookie"
+                  value: "shop_session-id=x-readiness-probe"
