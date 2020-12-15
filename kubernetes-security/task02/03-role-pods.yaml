@@ -1,0 +1,9 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: prometheus
+  name: pod-view
+rules:
+  - apiGroups: ["ServiceAccount"]
+    resources: ["pod"]
+    verbs: ["get","list","watch"]
