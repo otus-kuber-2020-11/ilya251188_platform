@@ -4,10 +4,9 @@ metadata:
   name: pod-viewers-binding
   namespace: prometheus
 subjects:
-  kind: Group
-  name: system:serviceaccounts:prometheus
-  apiGroup: rbac.authorization.k8s.io
-  namespace: prometheus
+  - kind: Group
+    name: system:serviceaccounts:prometheus
+    apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole
   name: pod-view
