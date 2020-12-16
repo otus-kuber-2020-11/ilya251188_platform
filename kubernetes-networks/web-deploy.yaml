@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      name: web
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: ilya251188/otus:intro
+          readinessProbe:
+            httpGet:
+              path: /index.html
+              port: 80
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+          volumeMounts:
+            - name: app
+              mountPath: /app
+      initContainers:
+        - name: init-web
+          image: busybox:latest
+          command: [ 'sh', '-c', 'wget -O- https://tinyurl.com/otus-k8s-intro | sh' ]
+          volumeMounts:
+            - name: app
+              mountPath: /app
+      volumes:
+        - name: app
+          emptyDir: { }
