@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: web
 spec:
-  replicas: 1
+  replicas: 3
   revisionHistoryLimit: 5
   selector:
     matchLabels:
@@ -14,26 +14,30 @@ spec:
       labels:
         app: web
     spec:
+      hostAliases:
+        - ip: "151.101.36.133"
+          hostnames:
+            - "raw.githubusercontent.com"
+      initContainers:
+        - name: init-web
+          image: busybox:1.31.0
+          command: [ 'sh', '-c', 'wget -O- https://tinyurl.com/otus-k8s-intro | sh' ]
+          volumeMounts:
+            - name: app
+              mountPath: /app
       containers:
         - name: web
           image: ilya251188/otus:intro
           readinessProbe:
             httpGet:
               path: /index.html
-              port: 80
+              port: 8000
           livenessProbe:
             tcpSocket:
               port: 8000
           volumeMounts:
             - name: app
               mountPath: /app
-      initContainers:
-        - name: init-web
-          image: busybox:latest
-          command: [ 'sh', '-c', 'wget -O- https://tinyurl.com/otus-k8s-intro | sh' ]
-          volumeMounts:
-            - name: app
-              mountPath: /app
       volumes:
         - name: app
-          emptyDir: { }
+          emptyDir: {}
