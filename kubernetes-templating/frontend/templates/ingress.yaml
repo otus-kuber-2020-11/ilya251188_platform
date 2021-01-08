@@ -1,13 +1,13 @@
 apiVersion: networking.k8s.io/v1beta1
-kind: ingress
+kind: Ingress
 metadata:
   name: frontend
 spec:
   rules:
-    host: shop.34.122.143.57.nip.io
-    http:
-      paths:
-        - path: /
-          backend:
-            serviceName: frontend
-            servicePort: 80
+    - host: shop.34.122.143.57.nip.io
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: frontend
+              servicePort: 80
