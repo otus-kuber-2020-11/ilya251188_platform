@@ -4,10 +4,10 @@ metadata:
   name: frontend
 spec:
   rules:
-    - host: shop.34.122.143.57.nip.io
+    - host: {{ .Values.ingress.host }}
       http:
         paths:
           - path: /
             backend:
               serviceName: frontend
-              servicePort: 80
+              servicePort: {{ .Values.services.frontend.port }}
