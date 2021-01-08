@@ -259,7 +259,7 @@ ingress:
     kubernetes.io/tls-acme: "true"
     cert-manager.io/cluster-issuer: "letsencrypt"
   hosts:
-    - name: chartmuseum.34.67.51.134.nip.io
+    - name: chartmuseum.34.122.143.57.nip.io
       path: /
       tls: true
       tlsSecret: chartmuseum-key
