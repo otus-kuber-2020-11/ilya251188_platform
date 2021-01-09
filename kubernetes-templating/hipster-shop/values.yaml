@@ -1,0 +1,7 @@
+redis:
+  cluster:
+    enabled: false
+  usePassword: false
+  sentinel:
+    enabled: false
+  fullnameOverride: redis-cart
