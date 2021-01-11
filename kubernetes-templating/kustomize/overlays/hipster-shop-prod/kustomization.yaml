@@ -5,5 +5,4 @@ commonLabels:
   environment: prod
 namePrefix: prod-
 resources:
-  - ../../base/deployment.yaml
-  - ../../base/service.yaml
+  - ../../base
