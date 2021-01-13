@@ -1,49 +1,111 @@
-**Kubernetes-templating**
+## Home Works
+<details><summary>6. kubernetes-templating</summary>
+1. Разрнут кластер Kubernetes Engine в GCP
 
-## **chartmuseum**
+2. Установлены готовые чарты nginx-ingress, cert-manager, chartmuseum, harbor посредством утилиты helm3
 
+3. Создан ресурс ClusterIssuer для корректно работы cert-menager'а
+```yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    # You must replace this email address with your own.
+    # Let's Encrypt will use this to contact you about expiring
+    # certificates, and issues related to your account.
+    email: snake251188@mail.ru
+    server: https://acme-v02.api.letsencrypt.org/directory
+    preferredChain: "ISRG Root X1"
+    privateKeySecretRef:
+      # Secret resource that will be used to store the account's private key.
+      name: letsencrypt
+    # Add a single challenge solver, HTTP01 using nginx
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+```
+
+4. Описан файл values.yaml для генерации ssl сертификата и создания ингресса chart-museum'a
+   https://chartmuseum.34.122.143.57.nip.io
+
+## Cahrtmuseum HWStar
 1. Включить API заменив значение переменной окружения
 ```python
 DISABLE_API: false
 ```
-  2. Добавить репозиторий в helm 
+2. Добавить репозиторий в helm
 ```shell
 helm repo add chartmuseum https://chartmuseum.34.122.143.57.nip.io
 ```
-  3. Загрузить в репоизторий чарт, я можно через curl дибо через плагин push для хельма 
+3. Загрузить в репоизторий чарт, я можно через curl дибо через плагин push для хельма
 ```shell
 helm push ./chartmuseum chartmuseum
 ```
-  4. Обновить кэш репозиторев helm 
+4. Обновить кэш репозиторев helm
 ```shell
 helm repo update
 ```
-  5. Устновить пакет из chartmuseum \
+5. Устновить пакет из chartmuseum
 ```shell
 helm install test-chart  chartmuseum/chartmuseum -f ./chartmuseum/values.yaml -n test
 ```
 PS: Так же можно включить аторизацию по логину/паролю или по access token но я не стал заморачиваться ибо в задании не требуется)
 
 
+### Harbor
+Для арбора написаны файлы values включающие ingress и генерацию сертификатов
+https://harbor.34.122.143.57.nip.io/
 
-Генерируем скелет инвентори 
+## HelmFile
+Описан деплой компонентов cert-manager, nginx-ingress, harbor посредством helmfile
+Манифест лежит в каталоге kubernetes-templating/helmfile
+Запуск
+```shell
+cd kubernetes-templating/helmfile
+helmfile apply
 ```
-docker run -t --rm -v $(pwd):/src:delegated deepmind/kapitan init --directory hipster-shop
+## Chart
+
+Написан helm chart  для сервиса frontend, манифесты лежат в папке kubernetes-templating/frontend
+**Проверка**
+```shell
+helm install -n hipster-shop fronend ./frontend
 ```
 
-Копируем библиотеки из экземпляров капитана
-```
-cp -r lib ~/DevOps/Otus/ilya251188_platform/kubernetes-templating/jsonnet/hipster-shop/ 
-```
-Меняем строку шаблона для корректного создания манифеста deployment
-```
-Deployment(name): $._Object("extensions/v1beta1", "Deployment", name)
->>
- Deployment(name): $._Object("apps/v1", "Deployment", name)
+Чарт frontend добавлен в зависимости к hipstershop
+Для чарта hipster-shop добавлена зависимость от community chart stable/redis
+**Проверка**
+```shell
+cd kubernetes-templating/
+helm dependency update ./hipster-shop
+helm install -n hipster-shop hipster-shop ./hipster-shop/
 ```
 
-## **Kapitan**
+## Helm-secrets
+Устновлены пакеты
+```shell
+brew install sops
+brew install gnupg2
+brew install gnu-getopt
+```
 
+Устновлен helm plugin
+```shell
+helm plugin install https://github.com/futuresimple/helm-secrets --version 2.0.2
+```
+Сгенерирован ключ и зашифрован файл секрктов,  лежит в каталоге  `kubernetes-templating/frontend/secrets.yaml`
+
+## Kubecfg
+Написаны шаблон деплоя на jsonnet для сервисов paymentservice и shippingservice
+```shell
+cd kubernetes-templating/kubecfg/
+kubecfg update services.jsonnet --namespace hipster-shop
+```
+
+## Kapitan
 Описываем таргет для компилятора капитана
 ```yaml
 # cat inventory/targets/hipster-shop.yml
@@ -54,8 +116,8 @@ parameters:
   target_name: prod
   namespace: hipster-shop 
   ```
-  
-Описываем перменные для компиляции манифеста 
+
+Описываем перменные для компиляции манифеста
 ```yaml
 # cat inventory/classes/cartservice.yml
 parameters:
@@ -100,38 +162,38 @@ local kap = import "lib/kapitan.libjsonnet";
 local inv = kap.inventory();
 
 local myContainers = kube.Container("server") {
-  image: inv.parameters.cartservice.image,
-  env: inv.parameters.cartservice.env,
-  resources: inv.parameters.cartservice.resources,
-  ports_+: {
-    grpc: {containerPort: inv.parameters.cartservice.port}
-  }
+image: inv.parameters.cartservice.image,
+env: inv.parameters.cartservice.env,
+resources: inv.parameters.cartservice.resources,
+ports_+: {
+grpc: {containerPort: inv.parameters.cartservice.port}
+}
 };
 
 local deployment = kube.Deployment("cartservice") {
-  spec+: {
-    selector: {
-      matchLabels: {
-        app: "cartservice",
-      },
-    },
-    template+: {
-      metadata: {
-        labels: {
-          app: "cartservice",
-        },
-      },
-      spec+: {
-        containers_+: {
-         cartservice: myContainers
-         },
-      }
-    },
-  },
+spec+: {
+selector: {
+matchLabels: {
+app: "cartservice",
+},
+},
+template+: {
+metadata: {
+labels: {
+app: "cartservice",
+},
+},
+spec+: {
+containers_+: {
+cartservice: myContainers
+},
+}
+},
+},
 };
 
 {
-  cartservice: deployment
+cartservice: deployment
 }
 ```
 
@@ -168,7 +230,7 @@ local deployment = import "./deployment.jsonnet";
 }
 ```
 
-Компилируем манифесты 
+Компилируем манифесты
 ```shell
 docker run -t --rm -v $(pwd):/src:delegated deepmind/kapitan compile
 ```
@@ -180,3 +242,4 @@ cd compiled/prod/manifest/
 ```shell
  kubectl appl -f ./deployment.yaml -f ./service.yaml
 ```
+</details>
