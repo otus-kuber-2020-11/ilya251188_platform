@@ -8,7 +8,7 @@ DISABLE_API: false
 ```
   2. Добавить репозиторий в helm 
 ```shell
-helm repo add chartmuseum https://chartmuseum.34.67.51.134.nip.io
+helm repo add chartmuseum https://chartmuseum.34.122.143.57.nip.io
 ```
   3. Загрузить в репоизторий чарт, я можно через curl дибо через плагин push для хельма 
 ```shell
