@@ -1,5 +1,5 @@
-## Home Works
-<details><summary>6. kubernetes-templating</summary>
+## 6. kubernetes-templating
+<details>
 1. Разрнут кластер Kubernetes Engine в GCP
 
 2. Установлены готовые чарты nginx-ingress, cert-manager, chartmuseum, harbor посредством утилиты helm3
@@ -241,5 +241,62 @@ cd compiled/prod/manifest/
 ```
 ```shell
  kubectl appl -f ./deployment.yaml -f ./service.yaml
+```
+</details>
+
+## 7. kubernetes-operators
+<details>
+
+### CR & CRD
+1. Создал cr и crd 
+2. Добавляем валидатор для CR \
+P.S в версии k8s `Major:"1", Minor:"18+", GitVersion:"v1.18.12-gke.1200"`,
+включен `preserveUnknownFields` для поддержки обратной совместимости и поле usless_data не приводите к ошибке
+валидации CR. \
+Добавил:
+```yaml
+preserveUnknownFields: false
+```
+3. Добавил в зависмости поля `spec` и его содержимое:
+```yaml
+  validation:
+    openAPIV3Schema:
+      type: object
+      required: ["spec"]
+.......
+       spec:
+          type: object
+          required: ["image", "database", "password", "storage_size"]
+```
+
+### Контроллер
+1. Создаем файлы шаблонов для манифестов 
+2. Копипастим  оператор 
+3. Ставим зависимости
+```shell
+pip install --upgrade pip kopf kubernetes jinja2
+```
+**Вопрос: почему объект создался, хотя мы создали CR, до того, как запустили контроллер?** \
+_Конртроллер подписывается на уведомления.\
+Уведолмения апи-сервером отправляет не только об только создаваемых ресусрах, но и о уже существующих.
+
+4. Создаем образ с контроллером
+5. Добавили манифесты для деплоя оператора
+
+```shell
+k get jobs.batch
+NAME                         COMPLETIONS   DURATION   AGE
+backup-mysql-instance-job    1/1           1s         5m1s
+restore-mysql-instance-job   1/1           46s        3m57s
+```
+```shell
+kubectl exec -it $MYSQLPOD -- mysql -potuspassword -e "select * from test;" otus-database
+mysql: [Warning] Using a password on the command line interface can be insecure.
++----+-------------+
+| id | name        |
++----+-------------+
+|  1 | some data   |
+|  2 | some data-2 |
++----+-------------+
 ```
 </details>
