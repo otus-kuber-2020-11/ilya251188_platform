@@ -21,6 +21,9 @@ spec:
           volumeMounts:
             - name: default-conf
               mountPath: /etc/nginx/conf.d/
+        - name: nginx-prometheus-exporter
+          image: nginx/nginx-prometheus-exporter:latest
+          args: ['-nginx.scrape-uri', 'http://127.0.0.1:8080/basic_status']        
       restartPolicy: Always
       volumes:
         - name: default-conf

@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: nginx-svc
   namespace: nginx
+  labels:
+    svc: nginx
 spec:
   type: ClusterIP
   selector:
@@ -11,6 +13,6 @@ spec:
     - port: 80
       name: http
       targetPort: 80
-    - port: 8080
-      name: stub
-      targetPort: 8080
+    - port: 9113
+      name: operator
+      targetPort: 9113
