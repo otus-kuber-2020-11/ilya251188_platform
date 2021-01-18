@@ -300,3 +300,90 @@ mysql: [Warning] Using a password on the command line interface can be insecure.
 +----+-------------+
 ```
 </details>
+
+## 8. Kubernetes-monitoring
+<details>
+
+ 1. Создаем namespace для prometheus
+```shell
+k create ns prometheus
+```
+
+
+2. Добавляем репозитрий prometheus-stack
+```shell
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+```
+
+3. Выгружаем values файл
+```shell
+helm show values prometheus-community/kube-prometheus-stack > values.yaml
+```
+
+4. Устанавливаем prometheus-stack
+```shell
+helm install -n prometheus prometheus prometheus-community/kube-prometheus-stack -f ./values.yaml
+```
+
+5. Создаем NS nginx
+```shell
+k create ns nginx
+```
+
+6. Пишем маниесты для запуска nginx (каталог kubernetes-monitoring/nginx)
+
+7. Применяем манифесты
+```shell
+k apply -f nginx/nginx-cm.yaml -f nginx/nginx-svc.yaml -f nginx/nginx-deployment.yaml
+```
+
+Проверяем что сервис запустился
+```shell
+k get all -n nginx
+NAME                                    READY   STATUS    RESTARTS   AGE
+pod/nginx-deployment-6857fdcbf7-jrrkd   1/1     Running   0          11s
+pod/nginx-deployment-6857fdcbf7-trf4q   1/1     Running   0          11s
+pod/nginx-deployment-6857fdcbf7-xcspx   1/1     Running   0          11s
+
+NAME                TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)           AGE
+service/nginx-svc   ClusterIP   10.40.2.82   <none>        80/TCP,8080/TCP   13s
+
+NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx-deployment   3/3     3            3           13s
+
+NAME                                          DESIRED   CURRENT   READY   AGE
+replicaset.apps/nginx-deployment-6857fdcbf7   3         3         3       13s
+```
+
+8. Добавлем в шаблон пода nginx контейнер с nginx-opertor'ом и прменяем 
+```shell
+k apply -f nginx/nginx-deployment.yaml
+```   
+9. Добавлеям additionalServiceMonitors в values чарта 
+```yaml
+  additionalServiceMonitors:
+      - name: "nginx-operator"
+        selector:
+          matchLabels:
+            svc: nginx
+        namespaceSelector:
+          matchNames:
+            - nginx
+        endpoints:
+          - port: "operator"
+            targetPort: 9113
+            path: /metrics
+```
+Обновляем манифесты 
+```shell
+helm upgrade --install -n prometheus prometheus prometheus-community/kube-prometheus-stack -f values.yaml
+```
+Скриншот дашборда для nginx
+![Alt text](./kubernetes-monitoring/images/2021-01-19_02-45-24.png?raw=true "Grafana")
+
+Таже ресусрсы доступны по ссылкам: \
+http://grafana.34.122.143.57.nip.io (pwd in values.yaml) \
+http://prometheus.34.122.143.57.nip.io/graph
+</details>
