@@ -1274,8 +1274,8 @@ prometheusOperator:
   ## Namespaces to scope the interaction of the Prometheus Operator and the apiserver (allow list).
   ## This is mutually exclusive with denyNamespaces. Setting this to an empty object will disable the configuration
   ##
-  namespaces: 
-     releaseNamespace: false
+  namespaces: {}
+     #releaseNamespace: false
     # additional:
   # - kube-system
 
@@ -1853,7 +1853,7 @@ prometheus:
     ## prometheus resource to be created with selectors based on values in the helm deployment,
     ## which will also match the servicemonitors created
     ##
-    serviceMonitorSelectorNilUsesHelmValues: true
+    serviceMonitorSelectorNilUsesHelmValues: false
 
     ## ServiceMonitors to be selected for target discovery.
     ## If {}, select all ServiceMonitors
@@ -2187,11 +2187,20 @@ prometheus:
   #      - nodes/proxy
   #    verbs: [ "get", "list", "watch" ]
 
-  additionalServiceMonitors: []
+  additionalServiceMonitors:
     ## Name of the ServiceMonitor to create
     ##
-    # - name: ""
-
+      - name: "nginx-operator"
+        selector:
+          matchLabels:
+            svc: nginx
+        namespaceSelector:
+          matchNames:
+            - nginx
+        endpoints:
+          - port: "operator"
+            targetPort: 9113
+            path: /metrics
     ## Additional labels to set used for the ServiceMonitorSelector. Together with standard labels from
     ## the chart
     ##
@@ -2208,11 +2217,11 @@ prometheus:
 
     ## Label selector for services to which this ServiceMonitor applies
     ##
-    # selector: {}
+
 
     ## Namespaces from which services are selected
     ##
-    # namespaceSelector:
+
     ## Match any namespace
     ##
     # any: false
