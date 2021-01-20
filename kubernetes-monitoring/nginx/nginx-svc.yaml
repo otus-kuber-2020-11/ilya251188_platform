@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+  namespace: nginx
+  labels:
+    svc: nginx
+spec:
+  type: ClusterIP
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      name: http
+      targetPort: 80
+    - port: 9113
+      name: operator
+      targetPort: 9113

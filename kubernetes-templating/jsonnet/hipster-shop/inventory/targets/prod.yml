@@ -1,0 +1,6 @@
+classes:
+  - cartservice
+
+parameters:
+  target_name: prod
+  namespace: hipster-shop 

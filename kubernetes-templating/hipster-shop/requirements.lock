@@ -1,0 +1,9 @@
+dependencies:
+- name: frontend
+  repository: file://../frontend
+  version: 0.1.0
+- name: redis
+  repository: https://charts.helm.sh/stable
+  version: 10.5.7
+digest: sha256:3a7e5336d5880049a8ad972b145a3cf2c582c673efa1e284587794d39d148648
+generated: "2021-01-09T03:09:33.821117+03:00"
