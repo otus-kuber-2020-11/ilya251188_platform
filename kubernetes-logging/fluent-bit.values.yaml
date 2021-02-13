@@ -120,7 +120,7 @@ backend:
     headers: []
 
 parsers:
-  enabled: false
+  enabled: true
   ## List the respective parsers in key: value format per entry
   ## Regex required fields are name and regex. JSON and Logfmt required field
   ## is name.
@@ -140,7 +140,11 @@ parsers:
   ##   Decode_Field_As  escaped   log  do_next
   ##   Decode_Field_As  json log
   ##
-  json: []
+  json:
+    - name: log
+      extraEntries: |
+        Decode_Field_As  escaped log do_next
+        Decode_Field_As  json log
 
 env: []
 
@@ -172,11 +176,11 @@ rawConfig: |-
   @INCLUDE fluent-bit-filter.conf
   @INCLUDE fluent-bit-output.conf
 
-  [FILTER]
-        Name    modify
-        Match   *
-        Remove  time
-        Remove  @timestamp
+#  [FILTER]
+#        Name    modify
+#        Match   *
+#        Remove  time
+#        Remove  @timestamp
 
 
 # WARNING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -262,7 +266,7 @@ service:
 input:
   tail:
     memBufLimit: 5MB
-    parser: docker
+    parser: log
     path: /var/log/containers/*.log
     ignore_older: ""
     dockerMode: false

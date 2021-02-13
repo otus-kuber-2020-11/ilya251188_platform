@@ -387,3 +387,131 @@ helm upgrade --install -n prometheus prometheus prometheus-community/kube-promet
 http://grafana.34.122.143.57.nip.io (pwd in values.yaml) \
 http://prometheus.34.122.143.57.nip.io/graph
 </details>
+
+## 9. Kubernetes-logging
+<details>
+
+#### Подготовка
+Создал новый кластер в gcp
+```shell
+k get node
+NAME                                     STATUS                     ROLES    AGE     VERSION
+gke-logiing-default-pool-1a619026-dtpg   Ready                      <none>   5m44s   v1.16.15-gke.6000
+gke-logiing-infra-pool-07e8b735-0vl5     Ready                      <none>   5m46s   v1.16.15-gke.6000
+gke-logiing-infra-pool-07e8b735-4dws     Ready                      <none>   5m46s   v1.16.15-gke.6000
+gke-logiing-infra-pool-07e8b735-ljrf     Ready                      <none>   5m46s   v1.16.15-gke.6000
+```
+
+Поставил hipster-hope
+```shell
+k create ns microservices-demo
+
+k apply -f https://raw.githubusercontent.com/express42/otus-platform-snippets/master/Module-02/Logging/microservices-demo-without-resources.yaml -n m
+icroservices-demo
+
+kgp -n microservices-demo -o wide
+NAME                                     READY   STATUS             RESTARTS   AGE     IP          NODE                                     NOMINATED NODE   READINESS GATES
+adservice-cb695c556-mn56r                1/1     Running            0          2m15s   10.8.4.20   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+cartservice-f4677b75f-d5z8q              1/1     Running            2          2m17s   10.8.4.16   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+checkoutservice-664f865b9b-jgnc5         1/1     Running            0          2m19s   10.8.4.11   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+currencyservice-bb9d998bd-hcvsm          1/1     Running            0          2m16s   10.8.4.18   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+emailservice-6756967b6d-crgfl            1/1     Running            0          2m19s   10.8.4.10   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+frontend-766587959d-2jd9s                1/1     Running            0          2m18s   10.8.4.13   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+loadgenerator-9f854cfc5-p9wr4            0/1     CrashLoopBackOff   3          2m17s   10.8.4.17   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+paymentservice-57c87dc78b-b2fsg          1/1     Running            0          2m18s   10.8.4.14   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+productcatalogservice-9f5d68b54-x59d9    1/1     Running            0          2m17s   10.8.4.15   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+recommendationservice-57c49756fd-rhzc8   1/1     Running            0          2m19s   10.8.4.12   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+redis-cart-5f75fbd9c7-qsvt4              1/1     Running            0          2m16s   10.8.4.21   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+shippingservice-689c6457cd-27vcw         1/1     Running            0          2m16s   10.8.4.19   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+```
+
+#### EFK
+
+Добавляем репо
+```shell
+helm repo add elastic https://helm.elastic.co
+
+helm repo update
+```
+
+Ставим чарты 
+```shell
+k create ns observability
+
+helm install -n observability elasticsearch elastic/elasticsearch
+
+helm install -n observability kibana elastic/kibana
+
+helm install -n observability fluent-bit stable/fluent-bit
+```
+
+Правим values для elasticsearch и обновляем манифесты
+```shell
+helm show values elastic/elasticsearch > kubernetes-logging/elasticsearch.values.yaml
+
+helm upgrade --install -n observability elasticsearch elastic/elasticsearch -f kubernetes-logging/elasticsearch.values.yaml
+
+NAME                             READY   STATUS    RESTARTS   AGE   IP          NODE                                     NOMINATED NODE   READINESS GATES
+elasticsearch-master-0           1/1     Running   0          36m   10.8.2.2    gke-logiing-infra-pool-07e8b735-ljrf     <none>           <none>
+elasticsearch-master-1           1/1     Running   0          38m   10.8.1.2    gke-logiing-infra-pool-07e8b735-4dws     <none>           <none>
+elasticsearch-master-2           1/1     Running   0          39m   10.8.0.2    gke-logiing-infra-pool-07e8b735-0vl5     <none>           <none>
+```
+
+Ставим ingress
+```shell
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+
+helm repo update
+
+k create ns nginx-ingress
+
+helm show values ingress-nginx/ingress-nginx > kubernetes-logging/nginx-ingress.values.yaml
+
+helm upgrade --install -n nginx-ingress nginx-ingress ingress-nginx/ingress-nginx -f kubernetes-logging/nginx-ingress.values.yaml
+
+kgp -n nginx-ingress -o wide
+NAME                                                      READY   STATUS    RESTARTS   AGE     IP         NODE                                   NOMINATED NODE   READINESS GATES
+nginx-ingress-ingress-nginx-controller-5865bbc6f6-kp5n9   1/1     Running   0          2m53s   10.8.2.4   gke-logiing-infra-pool-07e8b735-ljrf   <none>           <none>
+nginx-ingress-ingress-nginx-controller-5865bbc6f6-q24qd   1/1     Running   0          2m8s    10.8.1.4   gke-logiing-infra-pool-07e8b735-4dws   <none>           <none>
+nginx-ingress-ingress-nginx-controller-5865bbc6f6-tdldm   1/1     Running   0          2m33s   10.8.0.4   gke-logiing-infra-pool-07e8b735-0vl5   <none>           <none>
+```
+
+Обновляем кибану
+```shell
+helm show values elastic/kibana > kubernetes-logging/kibana.values.yaml
+ 
+helm upgrade --install -n observability kibana elastic/kibana -f kubernetes-logging/kibana.values.yaml
+```
+
+Теперь кибана доступна по ссылке http://kibana.104.155.18.162.xip.io
+
+Обновляем fluent-bit
+```shell
+helm show values stable/fluent-bit > kubernetes-logging/fluent-bit.values.yaml
+
+helm upgrade --install -n observability fluent-bit stable/fluent-bit -f kubernetes-logging/fluent-bit.values.yaml
+```
+
+EFK :star:
+
+Закомментировал фильтр добавленный в ДЗ и заменил его на json парсер, \
+как я понял он раскрывает полученный message и заменяет дефолтные поля, \
+единственное появилась ошибка в логе не понял что не нравится эластику
+```text
+[2021/02/13 14:06:27] [error] [out_es] could not pack/validate JSON response
+{"took":101,"errors":true,"items":[{"index":{"_index":"kubernetes_cluster-2021.01.26","_type":"flb_type","_id":"HWu2m3cBIfrXqsVX1iXF","status":400,"error":{"type":"mapper_parsing_exception","reason":"failed to parse field [log] of type [text] in document with id 'HWu2m3cBIfrXqsVX1iXF'. Preview of field's value: '{severity=info, message=[GetQuote] received request, timestamp=2021-01-26T06:46:24.507317158Z}'","caused_by":{"type":"illegal_state_exception","reason":"Can't get text on a START_OBJECT at 1:48"}}}},{"index":{"_index":"kubernetes_cluster-2021.01.26","_type":"flb_type","_id":"Hmu2m3cBIfrXqsVX1iXF","status":400,"error":{"type":"mapper_parsing_exception","reason":"failed to parse field [log] of type [text] in document with id 'Hmu2m3cBIfrXqsVX1iXF'. Preview of field's value: '{severity=info, message=[GetQuote] completed request, timestamp=2021-01-26T06:46:24.512419233Z}'","caused_by":{"type":"illegal_state_exception",
+```
+
+Сам парсер по сути указан в примере в values
+```yaml
+parsers:
+  enabled: true
+  json:
+     - name: log
+       extraEntries: |
+          Decode_Field_As  escaped log do_next
+          Decode_Field_As  json log
+```
+
+
+</details>
