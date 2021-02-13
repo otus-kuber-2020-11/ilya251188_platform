@@ -492,7 +492,7 @@ helm show values stable/fluent-bit > kubernetes-logging/fluent-bit.values.yaml
 helm upgrade --install -n observability fluent-bit stable/fluent-bit -f kubernetes-logging/fluent-bit.values.yaml
 ```
 
-EFK :star:
+#### EFK :star:
 
 Закомментировал фильтр добавленный в ДЗ и заменил его на json парсер, \
 как я понял он раскрывает полученный message и заменяет дефолтные поля, \
@@ -512,6 +512,72 @@ parsers:
           Decode_Field_As  escaped log do_next
           Decode_Field_As  json log
 ```
+
+#### Мониторинг ElasticSearch
+
+Устанавливаем prometheus-stack с включенным инрессом для графаны (grafana.104.155.18.162.xip.io) и nodeSelector'ами и tollerations для сервисов alertmanager и prometheus
+```shell
+helm upgrade --install -n observability prom-stack prometheus-community/kube-prometheus-stack -f kubernetes-logging/prometheus-stack.yaml
+```
+
+Устанавливаем elasticsearch-exporter
+```shell
+helm upgrade --install elasticsearch-exporter stable/elasticsearch-exporter --set es.uri=http://elasticsearch-master:9200 --set serviceMonitor.enabled=true --namespace=observability
+```
+
+Добавляем additionalServiceMonitors для сбора метрик с сервиса elasticsearch-exporter
+```yaml
+ additionalServiceMonitors:
+    - name: "elastic-operator"
+      selector:
+         matchLabels:
+            release: elasticsearch-exporter
+      namespaceSelector:
+         matchNames:
+            - observability
+      endpoints:
+         - port: http
+           targetPort: 9108
+           interval: 10s
+           path: /metrics
+```
+
+Апдейтим prometheus-stack
+```shell
+helm upgrade --install -n observability prom-stack prometheus-community/kube-prometheus-stack -f kubernetes-logging/prometheus-stack.yaml
+```
+
+Выводим одну ноду из infra-pool в drain-mode
+```shell
+k drain gke-logiing-infra-pool-07e8b735-0vl5 --ignore-daemonsets --delete-emptydir-data
+```
+И еще одну 
+
+Смотрим что эластик сломался.
+
+Включаем ingress для alermanager
+
+Добавляем правило алертинга из ДЗ
+```yaml
+prometheusRule:
+  enabled: true
+  labels: {}
+  rules:
+    - alert: ElasticsearchTooFewNodesRunning
+      expr: elasticsearch_cluster_health_number_of_nodes{service="{{ template "elasticsearch-exporter.fullname" . }}"} < 3
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        description: There are only {{ "{{ $value }}" }} < 3 ElasticSearch nodes running
+        summary: ElasticSearch running on less than 3 nodes
+```
+
+Применяем
+```shell
+helm upgrade --install elasticsearch-exporter stable/elasticsearch-exporter -n observability -f kubernetes-logging/elastic-exporter.yaml
+```
+
 
 
 </details>
