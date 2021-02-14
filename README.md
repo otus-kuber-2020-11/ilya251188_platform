@@ -590,4 +590,47 @@ tolerations:
 
 kubernetes.labels.app : nginx-ingress -> kubernetes.labels.app_kubernetes_io/name: ingress-nginx
 
+#### Loki
+
+Устанавливаем loki
+
+```shell
+helm repo add grafana https://grafana.github.io/helm-charts
+
+helm repo update
+
+helm show values grafana/loki-stack > kubernetes-logging/loki.values.yaml
+```
+```yaml
+loki:
+  enabled: true
+
+promtail:
+  enabled: true
+```
+
+```shell
+helm upgrade --install -n observability loki grafana/loki-stack -f kubernetes-logging/loki.values.yaml
+```
+
+Добавляем создание datasource для loki в prometheus-stack 
+```yaml
+  additionalDataSources:
+    - name: loki
+      access: proxy
+      type: loki
+      url: http://loki:3100
+```
+
+Добавляем toleration для promtail чтбы он завелся на нодах infra-pool где живет ингресс
+```yaml
+promtail:
+  enabled: true
+  tolerations:
+    - key: node-role
+      operator: Equal
+      value: infra
+      effect: NoSchedule
+```
+
 </details>

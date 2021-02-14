@@ -3,6 +3,11 @@ loki:
 
 promtail:
   enabled: true
+  tolerations:
+    - key: node-role
+      operator: Equal
+      value: infra
+      effect: NoSchedule
 
 fluent-bit:
   enabled: false
