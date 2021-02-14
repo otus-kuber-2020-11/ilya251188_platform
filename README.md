@@ -585,4 +585,9 @@ tolerations:
       "http_user_agent": "$http_user_agent" }'
 ```
 
+Рисуем дашборд по ответам от ингесс-контроллеров
+Правлю поля так как их у меня почему то-нет:
+
+kubernetes.labels.app : nginx-ingress -> kubernetes.labels.app_kubernetes_io/name: ingress-nginx
+
 </details>
