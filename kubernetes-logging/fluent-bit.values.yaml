@@ -246,7 +246,11 @@ dnsConfig: {}
 ## Node tolerations for fluent-bit scheduling to nodes with taints
 ## Ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 ##
-tolerations: []
+tolerations:
+  - key: node-role
+    operator: Equal
+    value: infra
+    effect: NoSchedule
 # - key: "key"
 #  operator: "Equal|Exists"
 #  value: "value"
@@ -255,7 +259,7 @@ tolerations: []
 ## Node labels for fluent-bit pod assignment
 ## Ref: https://kubernetes.io/docs/user-guide/node-selection/
 ##
-nodeSelector: {}
+nodeSelector: []
 affinity: {}
 
 service:

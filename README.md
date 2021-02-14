@@ -494,24 +494,10 @@ helm upgrade --install -n observability fluent-bit stable/fluent-bit -f kubernet
 
 #### EFK :star:
 
-Закомментировал фильтр добавленный в ДЗ и заменил его на json парсер, \
-как я понял он раскрывает полученный message и заменяет дефолтные поля, \
-единственное появилась ошибка в логе не понял что не нравится эластику
-```text
-[2021/02/13 14:06:27] [error] [out_es] could not pack/validate JSON response
-{"took":101,"errors":true,"items":[{"index":{"_index":"kubernetes_cluster-2021.01.26","_type":"flb_type","_id":"HWu2m3cBIfrXqsVX1iXF","status":400,"error":{"type":"mapper_parsing_exception","reason":"failed to parse field [log] of type [text] in document with id 'HWu2m3cBIfrXqsVX1iXF'. Preview of field's value: '{severity=info, message=[GetQuote] received request, timestamp=2021-01-26T06:46:24.507317158Z}'","caused_by":{"type":"illegal_state_exception","reason":"Can't get text on a START_OBJECT at 1:48"}}}},{"index":{"_index":"kubernetes_cluster-2021.01.26","_type":"flb_type","_id":"Hmu2m3cBIfrXqsVX1iXF","status":400,"error":{"type":"mapper_parsing_exception","reason":"failed to parse field [log] of type [text] in document with id 'Hmu2m3cBIfrXqsVX1iXF'. Preview of field's value: '{severity=info, message=[GetQuote] completed request, timestamp=2021-01-26T06:46:24.512419233Z}'","caused_by":{"type":"illegal_state_exception",
-```
+Не осилил. 
 
-Сам парсер по сути указан в примере в values
-```yaml
-parsers:
-  enabled: true
-  json:
-     - name: log
-       extraEntries: |
-          Decode_Field_As  escaped log do_next
-          Decode_Field_As  json log
-```
+Как я понял можно использовать парсер для json формата (https://docs.fluentbit.io/manual/pipeline/parsers/json) с декодером (https://docs.fluentbit.io/manual/pipeline/parsers/decoders)
+но настроить так и не вышло.
 
 #### Мониторинг ElasticSearch
 
@@ -578,6 +564,25 @@ prometheusRule:
 helm upgrade --install elasticsearch-exporter stable/elasticsearch-exporter -n observability -f kubernetes-logging/elastic-exporter.yaml
 ```
 
+#### EFK | nginx ingress
 
+Fluent-bit запустился на ноде из default-pool, добавляем toleration для вбора нод с меткой node-role=infra
+```yaml
+tolerations:
+  - key: node-role
+    operator: Equal
+    value: infra
+    effect: NoSchedule
+```
+
+Меняем формат лога на json
+```yaml
+  config:
+    log-format-escape-json: "true"
+    log-format-upstream: '{"time": "$time_iso8601", "remote_addr": "$proxy_protocol_addr", "x_forward_for": "$proxy_add_x_forwarded_for", "request_id": "$req_id",
+      "remote_user": "$remote_user", "bytes_sent": $bytes_sent, "request_time": $request_time, "status": $status, "vhost": "$host", "request_proto": "$server_protocol",
+      "path": "$uri", "request_query": "$args", "request_length": $request_length, "duration": $request_time,"method": "$request_method", "http_referrer": "$http_referer",
+      "http_user_agent": "$http_user_agent" }'
+```
 
 </details>
