@@ -633,4 +633,42 @@ promtail:
       effect: NoSchedule
 ```
 
+Включаем сервис для предоставления метрик 
+```yaml
+metrics:
+    port: 10254
+    # if this port is changed, change healthz-port: in extraArgs: accordingly
+    enabled: true
+
+.....
+
+    serviceMonitor:
+      enabled: true
+      additionalLabels: {}
+      namespace: ""
+      namespaceSelector: {}
+      # Default: scrape .Release.Namespace only
+      # To scrape all, use the following:
+      # namespaceSelector:
+      #   any: true
+      scrapeInterval: 30s
+      # honorLabels: true
+      targetLabels: []
+      metricRelabelings: []
+```
+
+Прометей его не увидел добавил ему свой СА
+```yaml
+    - name: "nginx-ingress-ingress-nginx-controller"
+      selector: 
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+      namespaceSelector:
+        matchNames:
+          - nginx-ingress
+      endpoints:
+        - port: metrics
+```
+
+Настроили дашборд показывающий логи ingress-controller и успешные статусы ответа от nginx
 </details>

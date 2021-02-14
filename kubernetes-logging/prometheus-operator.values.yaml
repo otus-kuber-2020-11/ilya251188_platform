@@ -1628,7 +1628,7 @@ prometheus:
     #   - thanos-gateway.domain.com
 
   ingress:
-    enabled: false
+    enabled: true
 
     # For Kubernetes >= 1.18 you should specify the ingress-controller via the field ingressClassName
     # See https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/#specifying-the-class-of-an-ingress
@@ -1642,7 +1642,8 @@ prometheus:
     ##
     # hosts:
     #   - prometheus.domain.com
-    hosts: []
+    hosts: 
+      - prometheus.104.155.18.162.xip.io
 
     ## Paths to use for ingress rules - one path should match the prometheusSpec.routePrefix
     ##
@@ -2236,6 +2237,15 @@ prometheus:
           targetPort: 9108
           interval: 10s
           path: /metrics
+    - name: "nginx-ingress-ingress-nginx-controller"
+      selector: 
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+      namespaceSelector:
+        matchNames:
+          - nginx-ingress
+      endpoints:
+        - port: metrics
           
   ## Name of the ServiceMonitor to create
   ##
