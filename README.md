@@ -671,4 +671,86 @@ metrics:
 ```
 
 Настроили дашборд показывающий логи ingress-controller и успешные статусы ответа от nginx
+
+#### k8s-event-logger
+
+Поставил утилиту 
+```shell
+helm install -n observability k8s-event-logger ./chart
+```
+
+Евенты подхватил loki в кибане от fluent bit событий что то не увидел
+![Alt text](./kubernetes-logging/screenshots/grafana.png?raw=true "Grafana")
+
+![Alt text](./kubernetes-logging/screenshots/kibana.png?raw=true "kibana")
+
+#### Audit logging | Задание со :star:
+
+Добавляем в манифесты кубера файл audit-policy.yaml:
+```shell
+ll /etc/kubernetes/manifests/
+total 32
+drwxr-xr-x 1 root root 4096 Feb 16 23:20 ./
+drwxr-xr-x 1 root root 4096 Feb 16 23:12 ../
+-rw-r--r-- 1 root root 2218 Feb 16 23:20 audit-policy.yaml
+-rw------- 1 root root 2297 Feb 16 23:12 etcd.yaml
+-rw------- 1 root root 4029 Feb 16 23:12 kube-apiserver.yaml
+-rw------- 1 root root 3339 Feb 16 23:12 kube-controller-manager.yaml
+-rw------- 1 root root 1385 Feb 16 23:12 kube-scheduler.yaml
+```
+
+Добавляем в манфиест апи сервера подгрузку политик и вольюмы для записи логов 
+
+```yaml
+spec:
+  containers:
+  - command:
+    - kube-apiserver
+    - --audit-policy-file=/etc/kubernetes/audit-policy.yaml
+    - --audit-log-path=/var/log/audit.log
+..........
+
+volumeMounts:
+..........
+
+   - mountPath: /etc/kubernetes/audit-policy.yaml
+     name: audit
+     readOnly: true
+   - mountPath: /var/log/audit.log
+     name: audit-log
+     readOnly: false
+..........
+
+volumes:
+..........
+
+- name: audit
+  hostPath:
+     path: /etc/kubernetes/manifests/audit-policy.yaml
+     type: File
+- name: audit-log
+  hostPath:
+     path: /var/log/kubernetes-audit.log
+     type: FileOrCreate
+```
+
+Доавляем сбор лога в fluentbit
+```yaml
+audit:
+  enable: true
+  input:
+    memBufLimit: 35MB
+    parser: docker
+    tag: kube-audit.*
+    path: /var/log/kubernetes-audit.log
+    bufferChunkSize: 2MB
+    bufferMaxSize: 10MB
+    skipLongLines: On
+    key: kubernetes-audit
+```
+
+Результат
+![Alt text](./kubernetes-logging/screenshots/audit-log.png?raw=true "Audit")
+
+#### Host logging | Задание со :star:
 </details>
