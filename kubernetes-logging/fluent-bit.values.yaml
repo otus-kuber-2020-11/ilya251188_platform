@@ -276,14 +276,14 @@ input:
     dockerModeFlush: 4
     exclude_path: ""
   systemd:
-    enabled: false
+    enabled: true
     filters:
       systemdUnit:
         - docker.service
         - kubelet.service
         - node-problem-detector.service
     maxEntries: 1000
-    readFromTail: true
+    readFromTail: false
     stripUnderscores: false
     tag: host.*
 

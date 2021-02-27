@@ -753,4 +753,15 @@ audit:
 ![Alt text](./kubernetes-logging/screenshots/audit-log.png?raw=true "Audit")
 
 #### Host logging | Задание со :star:
+
+Добавляем запись логов journald 
+```yaml
+  systemd:
+    enabled: true
+    maxEntries: 1000
+    readFromTail: true
+    stripUnderscores: false
+    tag: host.*
+```
+
 </details>
