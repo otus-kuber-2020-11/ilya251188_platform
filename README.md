@@ -387,3 +387,381 @@ helm upgrade --install -n prometheus prometheus prometheus-community/kube-promet
 http://grafana.34.122.143.57.nip.io (pwd in values.yaml) \
 http://prometheus.34.122.143.57.nip.io/graph
 </details>
+
+## 9. Kubernetes-logging
+<details>
+
+#### Подготовка
+Создал новый кластер в gcp
+```shell
+k get node
+NAME                                     STATUS                     ROLES    AGE     VERSION
+gke-logiing-default-pool-1a619026-dtpg   Ready                      <none>   5m44s   v1.16.15-gke.6000
+gke-logiing-infra-pool-07e8b735-0vl5     Ready                      <none>   5m46s   v1.16.15-gke.6000
+gke-logiing-infra-pool-07e8b735-4dws     Ready                      <none>   5m46s   v1.16.15-gke.6000
+gke-logiing-infra-pool-07e8b735-ljrf     Ready                      <none>   5m46s   v1.16.15-gke.6000
+```
+
+Поставил hipster-hope
+```shell
+k create ns microservices-demo
+
+k apply -f https://raw.githubusercontent.com/express42/otus-platform-snippets/master/Module-02/Logging/microservices-demo-without-resources.yaml -n m
+icroservices-demo
+
+kgp -n microservices-demo -o wide
+NAME                                     READY   STATUS             RESTARTS   AGE     IP          NODE                                     NOMINATED NODE   READINESS GATES
+adservice-cb695c556-mn56r                1/1     Running            0          2m15s   10.8.4.20   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+cartservice-f4677b75f-d5z8q              1/1     Running            2          2m17s   10.8.4.16   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+checkoutservice-664f865b9b-jgnc5         1/1     Running            0          2m19s   10.8.4.11   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+currencyservice-bb9d998bd-hcvsm          1/1     Running            0          2m16s   10.8.4.18   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+emailservice-6756967b6d-crgfl            1/1     Running            0          2m19s   10.8.4.10   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+frontend-766587959d-2jd9s                1/1     Running            0          2m18s   10.8.4.13   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+loadgenerator-9f854cfc5-p9wr4            0/1     CrashLoopBackOff   3          2m17s   10.8.4.17   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+paymentservice-57c87dc78b-b2fsg          1/1     Running            0          2m18s   10.8.4.14   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+productcatalogservice-9f5d68b54-x59d9    1/1     Running            0          2m17s   10.8.4.15   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+recommendationservice-57c49756fd-rhzc8   1/1     Running            0          2m19s   10.8.4.12   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+redis-cart-5f75fbd9c7-qsvt4              1/1     Running            0          2m16s   10.8.4.21   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+shippingservice-689c6457cd-27vcw         1/1     Running            0          2m16s   10.8.4.19   gke-logiing-default-pool-1a619026-dtpg   <none>           <none>
+```
+
+#### EFK
+
+Добавляем репо
+```shell
+helm repo add elastic https://helm.elastic.co
+
+helm repo update
+```
+
+Ставим чарты 
+```shell
+k create ns observability
+
+helm install -n observability elasticsearch elastic/elasticsearch
+
+helm install -n observability kibana elastic/kibana
+
+helm install -n observability fluent-bit stable/fluent-bit
+```
+
+Правим values для elasticsearch и обновляем манифесты
+```shell
+helm show values elastic/elasticsearch > kubernetes-logging/elasticsearch.values.yaml
+
+helm upgrade --install -n observability elasticsearch elastic/elasticsearch -f kubernetes-logging/elasticsearch.values.yaml
+
+NAME                             READY   STATUS    RESTARTS   AGE   IP          NODE                                     NOMINATED NODE   READINESS GATES
+elasticsearch-master-0           1/1     Running   0          36m   10.8.2.2    gke-logiing-infra-pool-07e8b735-ljrf     <none>           <none>
+elasticsearch-master-1           1/1     Running   0          38m   10.8.1.2    gke-logiing-infra-pool-07e8b735-4dws     <none>           <none>
+elasticsearch-master-2           1/1     Running   0          39m   10.8.0.2    gke-logiing-infra-pool-07e8b735-0vl5     <none>           <none>
+```
+
+Ставим ingress
+```shell
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+
+helm repo update
+
+k create ns nginx-ingress
+
+helm show values ingress-nginx/ingress-nginx > kubernetes-logging/nginx-ingress.values.yaml
+
+helm upgrade --install -n nginx-ingress nginx-ingress ingress-nginx/ingress-nginx -f kubernetes-logging/nginx-ingress.values.yaml
+
+kgp -n nginx-ingress -o wide
+NAME                                                      READY   STATUS    RESTARTS   AGE     IP         NODE                                   NOMINATED NODE   READINESS GATES
+nginx-ingress-ingress-nginx-controller-5865bbc6f6-kp5n9   1/1     Running   0          2m53s   10.8.2.4   gke-logiing-infra-pool-07e8b735-ljrf   <none>           <none>
+nginx-ingress-ingress-nginx-controller-5865bbc6f6-q24qd   1/1     Running   0          2m8s    10.8.1.4   gke-logiing-infra-pool-07e8b735-4dws   <none>           <none>
+nginx-ingress-ingress-nginx-controller-5865bbc6f6-tdldm   1/1     Running   0          2m33s   10.8.0.4   gke-logiing-infra-pool-07e8b735-0vl5   <none>           <none>
+```
+
+Обновляем кибану
+```shell
+helm show values elastic/kibana > kubernetes-logging/kibana.values.yaml
+ 
+helm upgrade --install -n observability kibana elastic/kibana -f kubernetes-logging/kibana.values.yaml
+```
+
+Теперь кибана доступна по ссылке http://kibana.104.155.18.162.xip.io
+
+Обновляем fluent-bit
+```shell
+helm show values stable/fluent-bit > kubernetes-logging/fluent-bit.values.yaml
+
+helm upgrade --install -n observability fluent-bit stable/fluent-bit -f kubernetes-logging/fluent-bit.values.yaml
+```
+
+#### EFK :star:
+
+Не осилил. 
+
+Как я понял можно использовать парсер для json формата (https://docs.fluentbit.io/manual/pipeline/parsers/json) с декодером (https://docs.fluentbit.io/manual/pipeline/parsers/decoders)
+но настроить так и не вышло.
+
+#### Мониторинг ElasticSearch
+
+Устанавливаем prometheus-stack с включенным инрессом для графаны (grafana.104.155.18.162.xip.io) и nodeSelector'ами и tollerations для сервисов alertmanager и prometheus
+```shell
+helm upgrade --install -n observability prom-stack prometheus-community/kube-prometheus-stack -f kubernetes-logging/prometheus-stack.yaml
+```
+
+Устанавливаем elasticsearch-exporter
+```shell
+helm upgrade --install elasticsearch-exporter stable/elasticsearch-exporter --set es.uri=http://elasticsearch-master:9200 --set serviceMonitor.enabled=true --namespace=observability
+```
+
+Добавляем additionalServiceMonitors для сбора метрик с сервиса elasticsearch-exporter
+```yaml
+ additionalServiceMonitors:
+    - name: "elastic-operator"
+      selector:
+         matchLabels:
+            release: elasticsearch-exporter
+      namespaceSelector:
+         matchNames:
+            - observability
+      endpoints:
+         - port: http
+           targetPort: 9108
+           interval: 10s
+           path: /metrics
+```
+
+Апдейтим prometheus-stack
+```shell
+helm upgrade --install -n observability prom-stack prometheus-community/kube-prometheus-stack -f kubernetes-logging/prometheus-stack.yaml
+```
+
+Выводим одну ноду из infra-pool в drain-mode
+```shell
+k drain gke-logiing-infra-pool-07e8b735-0vl5 --ignore-daemonsets --delete-emptydir-data
+```
+И еще одну 
+
+Смотрим что эластик сломался.
+
+Включаем ingress для alermanager
+
+Добавляем правило алертинга из ДЗ
+```yaml
+prometheusRule:
+  enabled: true
+  labels: {}
+  rules:
+    - alert: ElasticsearchTooFewNodesRunning
+      expr: elasticsearch_cluster_health_number_of_nodes{service="{{ template "elasticsearch-exporter.fullname" . }}"} < 3
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        description: There are only {{ "{{ $value }}" }} < 3 ElasticSearch nodes running
+        summary: ElasticSearch running on less than 3 nodes
+```
+
+Применяем
+```shell
+helm upgrade --install elasticsearch-exporter stable/elasticsearch-exporter -n observability -f kubernetes-logging/elastic-exporter.yaml
+```
+
+#### EFK | nginx ingress
+
+Fluent-bit запустился на ноде из default-pool, добавляем toleration для вбора нод с меткой node-role=infra
+```yaml
+tolerations:
+  - key: node-role
+    operator: Equal
+    value: infra
+    effect: NoSchedule
+```
+
+Меняем формат лога на json
+```yaml
+  config:
+    log-format-escape-json: "true"
+    log-format-upstream: '{"time": "$time_iso8601", "remote_addr": "$proxy_protocol_addr", "x_forward_for": "$proxy_add_x_forwarded_for", "request_id": "$req_id",
+      "remote_user": "$remote_user", "bytes_sent": $bytes_sent, "request_time": $request_time, "status": $status, "vhost": "$host", "request_proto": "$server_protocol",
+      "path": "$uri", "request_query": "$args", "request_length": $request_length, "duration": $request_time,"method": "$request_method", "http_referrer": "$http_referer",
+      "http_user_agent": "$http_user_agent" }'
+```
+
+Рисуем дашборд по ответам от ингесс-контроллеров
+Правлю поля так как их у меня почему то-нет:
+
+kubernetes.labels.app : nginx-ingress -> kubernetes.labels.app_kubernetes_io/name: ingress-nginx
+
+#### Loki
+
+Устанавливаем loki
+
+```shell
+helm repo add grafana https://grafana.github.io/helm-charts
+
+helm repo update
+
+helm show values grafana/loki-stack > kubernetes-logging/loki.values.yaml
+```
+```yaml
+loki:
+  enabled: true
+
+promtail:
+  enabled: true
+```
+
+```shell
+helm upgrade --install -n observability loki grafana/loki-stack -f kubernetes-logging/loki.values.yaml
+```
+
+Добавляем создание datasource для loki в prometheus-stack 
+```yaml
+  additionalDataSources:
+    - name: loki
+      access: proxy
+      type: loki
+      url: http://loki:3100
+```
+
+Добавляем toleration для promtail чтбы он завелся на нодах infra-pool где живет ингресс
+```yaml
+promtail:
+  enabled: true
+  tolerations:
+    - key: node-role
+      operator: Equal
+      value: infra
+      effect: NoSchedule
+```
+
+Включаем сервис для предоставления метрик 
+```yaml
+metrics:
+    port: 10254
+    # if this port is changed, change healthz-port: in extraArgs: accordingly
+    enabled: true
+
+.....
+
+    serviceMonitor:
+      enabled: true
+      additionalLabels: {}
+      namespace: ""
+      namespaceSelector: {}
+      # Default: scrape .Release.Namespace only
+      # To scrape all, use the following:
+      # namespaceSelector:
+      #   any: true
+      scrapeInterval: 30s
+      # honorLabels: true
+      targetLabels: []
+      metricRelabelings: []
+```
+
+Прометей его не увидел добавил ему свой СА
+```yaml
+    - name: "nginx-ingress-ingress-nginx-controller"
+      selector: 
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+      namespaceSelector:
+        matchNames:
+          - nginx-ingress
+      endpoints:
+        - port: metrics
+```
+
+Настроили дашборд показывающий логи ingress-controller и успешные статусы ответа от nginx
+
+#### k8s-event-logger
+
+Поставил утилиту 
+```shell
+helm install -n observability k8s-event-logger ./chart
+```
+
+Евенты подхватил loki в кибане от fluent bit событий что то не увидел
+![Alt text](./kubernetes-logging/screenshots/grafana.png?raw=true "Grafana")
+
+![Alt text](./kubernetes-logging/screenshots/kibana.png?raw=true "kibana")
+
+#### Audit logging | Задание со :star:
+
+Добавляем в манифесты кубера файл audit-policy.yaml:
+```shell
+ll /etc/kubernetes/manifests/
+total 32
+drwxr-xr-x 1 root root 4096 Feb 16 23:20 ./
+drwxr-xr-x 1 root root 4096 Feb 16 23:12 ../
+-rw-r--r-- 1 root root 2218 Feb 16 23:20 audit-policy.yaml
+-rw------- 1 root root 2297 Feb 16 23:12 etcd.yaml
+-rw------- 1 root root 4029 Feb 16 23:12 kube-apiserver.yaml
+-rw------- 1 root root 3339 Feb 16 23:12 kube-controller-manager.yaml
+-rw------- 1 root root 1385 Feb 16 23:12 kube-scheduler.yaml
+```
+
+Добавляем в манфиест апи сервера подгрузку политик и вольюмы для записи логов 
+
+```yaml
+spec:
+  containers:
+  - command:
+    - kube-apiserver
+    - --audit-policy-file=/etc/kubernetes/audit-policy.yaml
+    - --audit-log-path=/var/log/audit.log
+..........
+
+volumeMounts:
+..........
+
+   - mountPath: /etc/kubernetes/audit-policy.yaml
+     name: audit
+     readOnly: true
+   - mountPath: /var/log/audit.log
+     name: audit-log
+     readOnly: false
+..........
+
+volumes:
+..........
+
+- name: audit
+  hostPath:
+     path: /etc/kubernetes/manifests/audit-policy.yaml
+     type: File
+- name: audit-log
+  hostPath:
+     path: /var/log/kubernetes-audit.log
+     type: FileOrCreate
+```
+
+Доавляем сбор лога в fluentbit
+```yaml
+audit:
+  enable: true
+  input:
+    memBufLimit: 35MB
+    parser: docker
+    tag: kube-audit.*
+    path: /var/log/kubernetes-audit.log
+    bufferChunkSize: 2MB
+    bufferMaxSize: 10MB
+    skipLongLines: On
+    key: kubernetes-audit
+```
+
+Результат
+![Alt text](./kubernetes-logging/screenshots/audit-log.png?raw=true "Audit")
+
+#### Host logging | Задание со :star:
+
+Добавляем запись логов journald 
+```yaml
+  systemd:
+    enabled: true
+    maxEntries: 1000
+    readFromTail: true
+    stripUnderscores: false
+    tag: host.*
+```
+
+</details>
