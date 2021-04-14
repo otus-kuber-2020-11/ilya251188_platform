@@ -765,3 +765,159 @@ audit:
 ```
 
 </details>
+
+## 10. Kubernetes-gitops
+<details>
+
+#### GitLab
+1. Зарегистрировался в gitlab
+2. Создал репозитрий [microservices-demo](https://gitlab.com/ilya251188/microservices-demo)
+3. Положил в репозиторий helm чарты
+
+#### Подготовка Kubernetes кластера
+1. Создал кластер в GCP
+   ```shell
+   k get nodes
+   NAME                                    STATUS   ROLES    AGE   VERSION
+   gke-gitops-default-pool-5d39f171-8xnz   Ready    <none>   31m   v1.18.16-gke.502
+   gke-gitops-default-pool-5d39f171-fcwz   Ready    <none>   31m   v1.18.16-gke.502
+   gke-gitops-default-pool-5d39f171-x2h0   Ready    <none>   31m   v1.18.16-gke.502
+   gke-gitops-default-pool-5d39f171-xg3l   Ready    <none>   31m   v1.18.16-gke.502
+   ```
+2. Включил поддержку istio
+
+#### Continuous Integration
+1. Собираем образы
+   ```shell
+   export TAG=v0.0.1 && export REPO_PREFIX=ilya251188 && ./make-docker-images.sh
+   ```
+
+#### GitOps
+
+1. Установил CRD, добавляющую в кластер новый ресурс - HelmRelease:
+   ```shell
+   k apply -f https://raw.githubusercontent.com/fluxcd/helm-operator/master/deploy/crds.yaml
+   customresourcedefinition.apiextensions.k8s.io/helmreleases.helm.fluxcd.io created
+   ```
+   
+2. Добавил helm репозиторий fluxd
+   ```shell
+   helm repo add fluxcd https://charts.fluxcd.io
+   "fluxcd" has been added to your repositories
+   helm repo update
+   ```
+   
+3. Установка flux
+   ```shell
+   k create ns flux
+   helm upgrade --install -n flux flux fluxcd/flux -f ./kubernetes-gitops/flux.values.yaml
+   ```
+   
+4. Установка Helm operator
+   ```shell
+   helm upgrade --install -n flux helm-operator fluxcd/helm-operator -f ./kubernetes-gitops/helm-operator.values.yaml
+   ```
+   
+5. Установка fluxctl
+   ```shell
+   brew install fluxctl
+   ```
+   
+6. Проверяем работу flux
+   ```code
+   ts=2021-04-13T17:47:03.231740941Z caller=sync.go:540 method=Sync cmd=apply args= count=1
+   ts=2021-04-13T17:47:03.964541299Z caller=sync.go:606 method=Sync cmd="kubectl apply -f -" took=732.708836ms err=null output="namespace/microservices-demo created"
+   ```
+   ```shell
+   kgns
+   NAME                 STATUS   AGE
+   default              Active   3h33m
+   flux                 Active   17m
+   istio-operator       Active   3h8m
+   istio-system         Active   3h8m
+   kube-node-lease      Active   3h33m
+   kube-public          Active   3h33m
+   kube-system          Active   3h33m
+   microservices-demo   Active   79s
+   ```
+   
+#### HelmRelease
+
+1. Добавил манифест для деплоя сервиса frontend
+2. Проверяю что сервис задеплоился
+   ```code
+     Normal   ReleaseSynced      0s                    helm-operator  managed release 'frontend' in namespace 'microservices-demo' synchronized
+   ```
+   ```shell
+   k get helmreleases.helm.fluxcd.io -n microservices-demo
+   NAME       RELEASE    PHASE       STATUS     MESSAGE                                                                       AGE
+   frontend   frontend   Succeeded   deployed   Release was successful for Helm release 'frontend' in 'microservices-demo'.   9m48s
+   ```
+   ```shell
+   helm list -n microservices-demo
+   NAME    	NAMESPACE         	REVISION	UPDATED                                	STATUS  	CHART          	APP VERSION
+   frontend	microservices-demo	1       	2021-04-13 19:45:30.201365058 +0000 UTC	deployed	frontend-0.21.0	1.16.0
+   ```
+   
+3. Собираем образ frontend:v0.0.2
+4. Проверяем наличие обновлений в кластере и гит-репозитории
+   ```shell
+   helm history -n microservices-demo frontend
+   REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION
+   1       	Tue Apr 13 19:45:30 2021	superseded	frontend-0.21.0	1.16.0     	Install complete
+   2       	Tue Apr 13 19:58:37 2021	superseded	frontend-0.21.0	1.16.0     	Upgrade complete
+   3       	Tue Apr 13 19:58:38 2021	deployed  	frontend-0.21.0	1.16.0     	Upgrade complete
+   ```
+   ![Alt text](./kubernetes-gitops/png/flux_img_upd.png?raw=true "Audit")
+
+5. Меняем имя деплоймента
+6. Проверяем что релиз обновился
+   ```shell
+   helm history -n microservices-demo frontend
+   REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION
+   1       	Tue Apr 13 19:45:30 2021	superseded	frontend-0.21.0	1.16.0     	Install complete
+   2       	Tue Apr 13 19:58:37 2021	superseded	frontend-0.21.0	1.16.0     	Upgrade complete
+   3       	Tue Apr 13 19:58:38 2021	superseded	frontend-0.21.0	1.16.0     	Upgrade complete
+   4       	Tue Apr 13 20:08:18 2021	deployed  	frontend-0.21.0	1.16.0     	Upgrade complete
+   ```
+   
+7. Helm-operator определяет надо ли что-то обновлять гоняя dry-run
+   ```code
+   ts=2021-04-13T20:16:37.987883077Z caller=helm.go:69 component=helm version=v3 info="dry run for frontend" targetNamespace=microservices-demo release=frontend
+   ```
+   
+8. Добавил манифеесты для оставшихся сервисов
+9. Смотрю что все задеплоилось 
+   ```shell
+   helm list -n microservices-demo
+   NAME                   	NAMESPACE         	REVISION	UPDATED                                	STATUS  	CHART                        	APP VERSION
+   adservice              	microservices-demo	1       	2021-04-13 20:26:55.454492709 +0000 UTC	deployed	adservice-0.5.0              	1.16.0
+   cartservice            	microservices-demo	1       	2021-04-13 20:34:13.487794434 +0000 UTC	deployed	cartservice-0.4.1            	1.16.0
+   checkoutservice        	microservices-demo	1       	2021-04-13 20:26:55.59963869 +0000 UTC 	deployed	checkoutservice-0.4.0        	1.16.0
+   currencyservice        	microservices-demo	1       	2021-04-13 20:26:55.599350487 +0000 UTC	deployed	currencyservice-0.4.0        	1.16.0
+   emailservice           	microservices-demo	1       	2021-04-13 20:26:56.123214617 +0000 UTC	deployed	emailservice-0.4.0           	1.16.0
+   frontend               	microservices-demo	4       	2021-04-13 20:08:18.044137463 +0000 UTC	deployed	frontend-0.21.0              	1.16.0
+   grafana-load-dashboards	microservices-demo	1       	2021-04-13 20:39:24.520695459 +0000 UTC	deployed	grafana-load-dashboards-0.0.3
+   loadgenerator          	microservices-demo	1       	2021-04-13 20:39:24.591432729 +0000 UTC	deployed	loadgenerator-0.4.0          	1.16.0
+   paymentservice         	microservices-demo	1       	2021-04-13 20:27:00.731930761 +0000 UTC	deployed	paymentservice-0.3.0         	1.16.0
+   productcatalogservice  	microservices-demo	1       	2021-04-13 20:27:01.770460653 +0000 UTC	deployed	productcatalogservice-0.3.0  	1.16.0
+   recommendationservice  	microservices-demo	1       	2021-04-13 20:27:03.568795458 +0000 UTC	deployed	recommendationservice-0.3.0  	1.16.0
+   shippingservice        	microservices-demo	1       	2021-04-13 20:27:05.032023566 +0000 UTC	deployed	shippingservice-0.3.0        	1.16.0
+   ```
+   ```shell
+   kgp -n microservices-demo
+   NAME                                     READY   STATUS     RESTARTS   AGE
+   adservice-ffd489fdc-hdrw4                1/1     Running    0          14m
+   cartservice-5794b5b486-nh9lq             1/1     Running    2          7m34s
+   cartservice-redis-master-0               1/1     Running    0          7m34s
+   checkoutservice-6464674b49-9h52x         1/1     Running    0          14m
+   currencyservice-cd649b8d5-lflnb          1/1     Running    0          14m
+   emailservice-67cdfc4897-xm6c5            1/1     Running    0          14m
+   frontend-hipster-799cb8bf45-zxjpv        1/1     Running    0          33m
+   loadgenerator-5779c46865-57sht           1/1     Running    0          2m24s
+   paymentservice-55f8fffb69-wj6ph          1/1     Running    0          14m
+   productcatalogservice-7996cc7b8f-mrwlv   1/1     Running    0          14m
+   recommendationservice-69fd5f69c9-q6j6h   1/1     Running    0          14m
+   shippingservice-84b7f67dc7-v4dxg         1/1     Running    0          14m
+   ```
+</details>
